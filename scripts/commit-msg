@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# git commit message formatter
+MAX_TITLE_LENGTH=50
+MAX_BODY_LINE_LENGTH=72
+
+commit_file="$1"
+commit_msg=$(cat "$commit_file")
+
+title=$(echo "$commit_msg" | head -n 1)
+body=$(echo "$commit_msg" | tail -n +3)
+
+formatted_body=$(echo "$body" | fold -s -w $MAX_BODY_LINE_LENGTH)
+
+formatted_msg="$title\n\n$formatted_body"
+
+printf "%s\n\n%s" "$title" "$formatted_body" > "$commit_file"
