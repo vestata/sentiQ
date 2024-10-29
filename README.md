@@ -2,7 +2,8 @@
 SentIQ is an intelligent security system that combines RAG, LLM, and sensor data to detect threats, monitor behaviors, and generate alerts for enhanced safety .
 
 ## Quick Usage
-使用以下明令安專環境：
+將開發文件中的 openai API key 複製到 `config.py` 中。
+使用以下命令安裝環境：
 ```
 pip install -r requirements.txt
 ```
