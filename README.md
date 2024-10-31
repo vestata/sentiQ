@@ -3,7 +3,7 @@ SentIQ is an intelligent security system that combines RAG, LLM, and sensor data
 
 ## Quick Usage
 將開發文件中的 openai API key 複製到 `config.py` 中。
-使用以下命令安裝環境：
+使用 `conda` 建立虛擬環境，並使用以下命令安裝環境：
 ```
 pip install -r requirements.txt
 ```
@@ -12,4 +12,4 @@ pip install -r requirements.txt
 python3 run.py
 ```
 
-目前測試是使用 openai API，openai API key 不能上傳 github，請去開發文件中查閱。
+為了省去本地大型語言模型的建置時間，目前測試是使用 openai API 以加速功能的開發，openai API key 不能上傳 github，請去開發文件中查閱。
