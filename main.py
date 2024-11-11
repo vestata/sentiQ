@@ -11,6 +11,7 @@ Original file is located at
 """
 import os
 import config
+import argparse
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -30,6 +31,8 @@ from langgraph.graph import END, StateGraph
 
 from pdf2image import convert_from_path
 import pytesseract
+
+# from state_graph import WebRagGraph, PlainGraph
 
 os.environ["OPENAI_API_KEY"] = config.OPENAI_API_KEY
 os.environ['TAVILY_API_KEY'] = config.TAVILY_API_KEY
@@ -123,11 +126,11 @@ class vectorstore(BaseModel):
     """
     query: str = Field(description="搜尋向量資料庫時輸入的問題")
 
-class plain_generate(BaseModel):
-    """
-    基本LLM模型輸出，不管任何問題，都會進來給出答案。
-    """
-    query: str = Field(description="使用LLM輸出時輸入的問題")
+# class plain_generate(BaseModel):
+#     """
+#     基本LLM模型輸出，不管任何問題，都會進來給出答案。
+#     """
+#     query: str = Field(description="使用LLM輸出時輸入的問題")
     
 
 # Prompt Template
@@ -143,7 +146,9 @@ route_prompt = ChatPromptTemplate.from_messages(
 
 # Route LLM with tools use
 llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
-structured_llm_router = llm.bind_tools(tools=[web_search, vectorstore, plain_generate])
+# structured_llm_router = llm.bind_tools(tools=[web_search, vectorstore, plain_generate])
+structured_llm_router = llm.bind_tools(tools=[web_search, vectorstore])
+
 
 # 使用 LCEL 語法建立 chain
 question_router = route_prompt | structured_llm_router
@@ -202,8 +207,8 @@ prompt = ChatPromptTemplate.from_messages(
 llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
 llm_chain = prompt | llm | StrOutputParser()
 
-# 測試 llm_chain 功能
-# question = "Hi how are you?"
+# # 測試 llm_chain 功能
+# question = "請問為什麼海水是藍的?"
 # generation = llm_chain.invoke({"question": question})
 # print(generation)
 
@@ -427,7 +432,7 @@ def rag_generate(state):
     generation = rag_chain.invoke({"documents": documents, "question": question})
     return {"documents": documents, "question": question, "generation": generation}
 
-def plain_answer(state):
+def plain_generate(state):
     """
     Generate answer using the LLM without vectorstore.
 
@@ -440,7 +445,10 @@ def plain_answer(state):
 
     print("---GENERATE PLAIN ANSWER---")
     question = state["question"]
+    # print("question: ", question)
+    
     generation = llm_chain.invoke({"question": question})
+    # print("generation: ", generation)
     return {"question": question, "generation": generation}
 
 
@@ -537,59 +545,179 @@ def grade_rag_generation(state):
 
 """## Build Graph"""
 
-workflow = StateGraph(GraphState)
+# workflow = StateGraph(GraphState)
 
-# Define the nodes
-workflow.add_node("web_search", web_search) # web search
-workflow.add_node("retrieve", retrieve) # retrieve
-workflow.add_node("retrieval_grade", retrieval_grade) # retrieval grade
-workflow.add_node("rag_generate", rag_generate) # rag
-workflow.add_node("plain_answer", plain_answer) # llm
+# # Define the nodes
+# workflow.add_node("web_search", web_search) # web search
+# workflow.add_node("retrieve", retrieve) # retrieve
+# workflow.add_node("retrieval_grade", retrieval_grade) # retrieval grade
+# workflow.add_node("rag_generate", rag_generate) # rag
+# workflow.add_node("plain_answer", plain_answer) # llm
 
-# Build graph
-workflow.set_conditional_entry_point(
-    route_question,
-    {
-        "web_search": "web_search",
-        "vectorstore": "retrieve",
-        "plain_answer": "plain_answer",
-    },
-)
-workflow.add_edge("retrieve", "retrieval_grade")
-workflow.add_edge("web_search", "retrieval_grade")
-workflow.add_conditional_edges(
-    "retrieval_grade",
-    route_retrieval,
-    {
-        "web_search": "web_search",
-        "rag_generate": "rag_generate",
-    },
-)
-workflow.add_conditional_edges(
-    "rag_generate",
-    grade_rag_generation,
-    {
-        "not supported": "rag_generate", # Hallucinations: re-generate
-        "not useful": "web_search", # Fails to answer question: fall-back to web-search
-        "useful": END,
-    },
-)
-workflow.add_edge("plain_answer", END)
+# # Build graph
+# workflow.set_conditional_entry_point(
+#     route_question,
+#     {
+#         "web_search": "web_search",
+#         "vectorstore": "retrieve",
+#         "plain_answer": "plain_answer",
+#     },
+# )
+# workflow.add_edge("retrieve", "retrieval_grade")
+# workflow.add_edge("web_search", "retrieval_grade")
+# workflow.add_conditional_edges(
+#     "retrieval_grade",
+#     route_retrieval,
+#     {
+#         "web_search": "web_search",
+#         "rag_generate": "rag_generate",
+#     },
+# )
+# workflow.add_conditional_edges(
+#     "rag_generate",
+#     grade_rag_generation,
+#     {
+#         "not supported": "rag_generate", # Hallucinations: re-generate
+#         "not useful": "web_search", # Fails to answer question: fall-back to web-search
+#         "useful": END,
+#     },
+# )
+# workflow.add_edge("plain_answer", END)
 
-# Compile
-app = workflow.compile()
+# # Compile
+# app = workflow.compile()
+
+class PlainGraph:
+    def __init__(self):
+        self.workflow = StateGraph(GraphState)
+    
+    def setup_nodes(self):
+        # Define the nodes
+        self.workflow.add_node("plain_generate", plain_generate)  # llm
+        self.workflow.set_entry_point("plain_generate")
+
+    def setup_graph(self):
+        self.workflow.add_edge("plain_generate", END)
+
+    def compile_workflow(self):
+        # Compile the workflow into an app
+        return self.workflow.compile()
+
+    def create_app(self):
+        # Public method to set up and compile workflow
+        self.setup_nodes()
+        self.setup_graph()
+        return self.compile_workflow()
+
+
+class WebRagGraph:
+    def __init__(self):
+        self.workflow = StateGraph(GraphState)
+        
+    def setup_nodes(self):
+        # Define the nodes
+        self.workflow.add_node("web_search", web_search)  # web search
+        self.workflow.add_node("retrieve", retrieve)  # retrieve
+        self.workflow.add_node("retrieval_grade", retrieval_grade)  # retrieval grade
+        self.workflow.add_node("rag_generate", rag_generate)  # rag
+        self.workflow.add_node("plain_generate", plain_generate)  # llm
+
+    def setup_graph(self):
+        # Build graph and set entry points
+        self.workflow.set_conditional_entry_point(
+            route_question,
+            {
+                "web_search": "web_search",
+                "vectorstore": "retrieve",
+                "plain_generate": "plain_generate",
+            },
+        )
+        # Set up edges
+        self.workflow.add_edge("retrieve", "retrieval_grade")
+        self.workflow.add_edge("web_search", "retrieval_grade")
+        
+        # Conditional edges for retrieval grading
+        self.workflow.add_conditional_edges(
+            "retrieval_grade",
+            route_retrieval,
+            {
+                "web_search": "web_search",
+                "rag_generate": "rag_generate",
+            },
+        )
+        
+        # Conditional edges for RAG generation grading
+        self.workflow.add_conditional_edges(
+            "rag_generate",
+            grade_rag_generation,
+            {
+                "not supported": "rag_generate",  # Hallucinations: re-generate
+                "not useful": "web_search",       # Fails to answer question: fallback to web-search
+                "useful": END,
+            },
+        )
+        self.workflow.add_edge("plain_generate", END)
+
+    def compile_workflow(self):
+        # Compile the workflow into an app
+        return self.workflow.compile()
+
+    def create_app(self):
+        # Public method to set up and compile workflow
+        self.setup_nodes()
+        self.setup_graph()
+        return self.compile_workflow()
+
+
+# create the web rag graph
+state_graph_web_rag = WebRagGraph()
+app_web_rag = state_graph_web_rag.create_app()
+state_graph_plain = PlainGraph()
+app_plain = state_graph_plain.create_app()
 
 """### 實際測試"""
+state_graphs = {
+    "rag": state_graph_web_rag,
+    "plain": state_graph_plain,
+}
 
-def run(question):
+apps = {
+    "rag": app_web_rag,
+    "plain": app_plain,
+}
+
+def run(question, graph_flag):
     inputs = {"question": question}
-    for output in app.stream(inputs):
+    # select the state graph you want to use
+    selected_app = apps.get(graph_flag)
+    for output in selected_app.stream(inputs):
         print("\n")
 
     # Final generation
     if 'rag_generate' in output.keys():
         print(output['rag_generate']['generation'])
-    elif 'plain_answer' in output.keys():
-        print(output['plain_answer']['generation'])
+    elif 'plain_generate' in output.keys():
+        print(output['plain_generate']['generation'])
 
 
+
+
+# run("怎麼識別可疑物品?")
+
+# run("怎麼辨識可疑人物?")
+
+# run("太陽是什麼顏色?")
+
+if __name__ == "__main__":
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description="Select a state graph.")
+    parser.add_argument(
+        "-f", "--flag", type=str, required=True, 
+        help="Specify the graph to use, e.g., 'rag' or 'other'"
+    )
+    args = parser.parse_args()
+    
+    # Run the main function with the specified graph
+    run("怎麼識別可疑物品?", args.flag)
+    run("怎麼辨識可疑人物?", args.flag)
+    run("太陽是什麼顏色?", args.flag)
