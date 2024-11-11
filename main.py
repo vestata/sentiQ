@@ -713,7 +713,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Select a state graph.")
     parser.add_argument(
         "-f", "--flag", type=str, required=True, 
-        help="Specify the graph to use, e.g., 'rag' or 'other'"
+        help="Specify the graph to use, e.g., 'rag' or 'plain'"
     )
     args = parser.parse_args()
     
