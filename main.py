@@ -21,6 +21,8 @@ from langgraph.graph import END, StateGraph
 os.environ["OPENAI_API_KEY"] = config.OPENAI_API_KEY
 os.environ['TAVILY_API_KEY'] = config.TAVILY_API_KEY
 
+tmp_type = "lm_studio"
+# tmp_type = "openai"
 
 # 建立 retriever
 retriever = rag_dataloader.vectorstore.as_retriever()
@@ -29,10 +31,10 @@ retriever = rag_dataloader.vectorstore.as_retriever()
 
 web_search_tool = TavilySearchResults()
 
-"""## LLMs
 
-### Question Router
-"""
+# ====================================================
+# Route LLM without bind_tools
+# ====================================================
 
 # Prompt Template
 instruction = """
@@ -48,15 +50,14 @@ route_prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
-# ====================================================
-# Route LLM without bind_tools
-# ====================================================
-llm = model.get_llm()
+llm = model.get_llm(tmp_type)
 question_router = route_prompt | llm | StrOutputParser()
 
-"""### RAG Responder"""
-
+# =====================================================
+# LLM & chain
+# =====================================================
 # Prompt Template
+
 instruction = """
 你是一位負責處理使用者問題的助手，請利用提取出來的文件內容來回應問題。
 若問題的答案無法從文件內取得，請直接回覆你不知道，禁止虛構答案。
@@ -71,10 +72,7 @@ prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
-# =====================================================
-# LLM & chain
-# =====================================================
-llm = model.get_llm()
+llm = model.get_llm(tmp_type)
 rag_chain = prompt | llm | StrOutputParser()
 
 """### Plain LLM"""
@@ -96,7 +94,7 @@ prompt = ChatPromptTemplate.from_messages(
 # LLM & chain
 # =====================================================
 
-llm = model.get_llm()
+llm = model.get_llm(tmp_type)
 llm_chain = prompt | llm | StrOutputParser()
 
 """### Retrieval Grader"""
@@ -118,7 +116,7 @@ grade_prompt = ChatPromptTemplate.from_messages(
 # Grader LLM
 # =====================================================
 
-llm = model.get_llm()
+llm = model.get_llm(tmp_type)
 retrieval_grader = grade_prompt | llm | StrOutputParser()
 
 """### Hallucination Grader"""
@@ -140,7 +138,7 @@ hallucination_prompt = ChatPromptTemplate.from_messages(
 # Grader LLM
 # =====================================================
 
-llm = model.get_llm()
+llm = model.get_llm(tmp_type)
 hallucination_grader = hallucination_prompt | llm | StrOutputParser()
 
 """### Answer Grader"""
@@ -162,7 +160,7 @@ answer_prompt = ChatPromptTemplate.from_messages(
 # LLM
 # =====================================================
 
-llm = model.get_llm()
+llm = model.get_llm(tmp_type)
 answer_grader = answer_prompt | llm | StrOutputParser()
 
 """# Graph
@@ -308,15 +306,14 @@ def route_question(state):
     print("---ROUTE QUESTION---")
     question = state["question"]
     source = question_router.invoke({"question": question})
-    print("Question Router Output:", source)
+    # print("Question Router Output:", source)
     datasource = source.strip().lower()
 
-    print("Question Router Output:", source)
 
-    if datasource == 'web_search':
+    if 'web_search' in datasource:
         print("  -ROUTE TO WEB SEARCH-")
         return "web_search"
-    elif datasource == 'vectorstore':
+    elif 'vectorstore' in datasource:
         print("  -ROUTE TO VECTORSTORE-")
         return "retrieve"
     else:
@@ -366,21 +363,21 @@ def grade_rag_generation(state):
     grade = response.strip().lower()
 
     # Check hallucination
-    if 'no' in grade:
+    if 'yes' in grade:
+        print("  -DECISION: GENERATION IS NOT GROUNDED IN DOCUMENTS, RE-TRY-")
+        return "not supported"
+    else:
         print("  -DECISION: GENERATION IS GROUNDED IN DOCUMENTS-")
         # Check question-answering
         print("---GRADE GENERATION vs QUESTION---")
         response = answer_grader.invoke({"question": question, "generation": generation})
         grade = response.strip().lower()
-        if 'yes' in grade:
-            print("  -DECISION: GENERATION ADDRESSES QUESTION-")
-            return "useful"
-        else:
+        if 'no' in grade:
             print("  -DECISION: GENERATION DOES NOT ADDRESS QUESTION-")
             return "not useful"
-    else:
-        print("  -DECISION: GENERATION IS NOT GROUNDED IN DOCUMENTS, RE-TRY-")
-        return "not supported"
+        else:
+            print("  -DECISION: GENERATION ADDRESSES QUESTION-")
+            return "useful"
 
 """## Build Graph"""
 

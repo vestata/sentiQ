@@ -7,9 +7,9 @@ import config
 
 
 hf_token = config.HF_TOKEN
-llm_type = "lm_studio"
+# llm_type = "lm_studio"
 
-def get_llm(llm_type=llm_type):
+def get_llm(llm_type):
     if llm_type == "openai":
         print("Using OpenAI  gpt-3.5-turbo")
         return ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
@@ -21,7 +21,7 @@ def get_llm(llm_type=llm_type):
         print(f"loaing HuggingFace model:{model_name}...")
     elif llm_type == "lm_studio":
         print("Using LM Studio backend")
-        api_base = "http://localhost:1234/v1"  # Adjust to your LM Studio API URL
+        api_base = "http://localhost:1234/v1"  
         api_key = "lm-studio"
 
         return ChatOpenAI(
