@@ -1,15 +1,18 @@
 from pdf2image import convert_from_path
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_openai.embeddings import OpenAIEmbeddings
+# from langchain_openai.embeddings import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
+from langchain_community.tools.tavily_search import TavilySearchResults
 import pytesseract
 import os
+import config
 
+"""## Vectorstore"""
 
 pdf_path = "data/data1.pdf"
 persist_directory = "vectordb"
-
 
 if not os.path.exists(persist_directory):
     os.makedirs(persist_directory)
@@ -23,7 +26,7 @@ if (
 ):
     print("--loading from existing vectordb--")
     # 如果 vectordb 有資料，直接從資料庫讀取
-    embeddings = OpenAIEmbeddings()
+    embeddings = OpenAIEmbeddings(api_key=config.OPENAI_API_KEY)
     vectorstore = Chroma(
         persist_directory=persist_directory,
         embedding_function=embeddings,
