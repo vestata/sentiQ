@@ -2,14 +2,9 @@ import os
 import config
 import argparse
 import model
+import rag_dataloader
 
-from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
 from langchain_community.tools.tavily_search import TavilySearchResults
-
-from langchain_openai.embeddings import OpenAIEmbeddings
-
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.output_parsers import StrOutputParser
@@ -18,80 +13,17 @@ from typing import List
 from langchain.schema import Document
 from langgraph.graph import END, StateGraph
 
-from pdf2image import convert_from_path
-import pytesseract
-
+# ====================================================
+# global parameter (might remove in the future)
+# ====================================================
 # from state_graph import WebRagGraph, PlainGraph
 
 os.environ["OPENAI_API_KEY"] = config.OPENAI_API_KEY
 os.environ['TAVILY_API_KEY'] = config.TAVILY_API_KEY
 
-"""## Vectorstore"""
-
-pdf_path = "data/data1.pdf"
-persist_directory = "vectordb"
-
-if not os.path.exists(persist_directory):
-    os.makedirs(persist_directory)
-
-
-# 檢查 vectordb 目錄是否為空
-if (
-    os.path.exists(persist_directory)
-    and os.path.isdir(persist_directory)
-    and os.listdir(persist_directory)
-):
-    print("--loading from existing vectordb--")
-    # 如果 vectordb 有資料，直接從資料庫讀取
-    embeddings = OpenAIEmbeddings(api_key=config.OPENAI_API_KEY)
-    vectorstore = Chroma(
-        persist_directory=persist_directory,
-        embedding_function=embeddings,
-    )
-else:
-    print("vectordb is empty, starting PDF OCR and embedding process")
-
-    # 將 PDF 每頁轉為圖片
-    images = convert_from_path(pdf_path)
-
-    print("--start OCR--")
-    all_text = ""
-
-    # 遍歷每頁圖片並進行 OCR
-    for i, image in enumerate(images):
-        # 使用 Tesseract OCR 提取文字
-        text = pytesseract.image_to_string(
-            image, lang="chi_tra"
-        )  # 若為繁體中文，可改為 'chi_tra'
-        all_text += text + "\n"
-
-    print("--start word split--")
-    # 初始化文字分割器
-    splitter = RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=128)
-
-    # 使用文字分割器分割全部文字
-    doc_split = splitter.split_text(all_text)
-
-    # 將分割後的文字轉為 Document 物件
-    documents = [Document(page_content=chunk) for chunk in doc_split]
-
-    print("--start embedding--")
-    # 定義要使用的 Embedding model 將 chunk 內的文字轉為向量
-    embeddings = OpenAIEmbeddings()
-
-    print("--creating vectorstore and saving to vectordb--")
-    # 使用 Chroma 建立 vectorstore，並將其轉為 retriever 型態
-    vectorstore = Chroma.from_documents(
-        documents=documents,
-        embedding=embeddings,
-        persist_directory=persist_directory,
-    )
-
-    # 在儲存資料後進行保存
-    vectorstore.persist()
 
 # 建立 retriever
-retriever = vectorstore.as_retriever()
+retriever = rag_dataloader.vectorstore.as_retriever()
 
 """## Web Search Tool"""
 
@@ -133,9 +65,10 @@ route_prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
+# ====================================================
 # Route LLM with tools use
+# ====================================================
 llm = model.get_llm()
-# structured_llm_router = llm.bind_tools(tools=[web_search, vectorstore, plain_generate])
 structured_llm_router = llm.bind_tools(tools=[web_search, vectorstore])
 
 
@@ -164,12 +97,6 @@ prompt = ChatPromptTemplate.from_messages(
 # =====================================================
 llm = model.get_llm()
 rag_chain = prompt | llm | StrOutputParser()
-
-# 測試 rag_chain 功能
-# question = "牙周病與牙齦炎差在哪?"
-# docs = retriever.invoke(question)
-# generation = rag_chain.invoke({"documents": docs, "question": question})
-# print(generation)
 
 """### Plain LLM"""
 
@@ -308,11 +235,6 @@ structured_llm_grader = llm.with_structured_output(GradeAnswer)
 # 使用 LCEL 語法建立 chain
 answer_grader = answer_prompt | structured_llm_grader
 
-# #測試 grader 功能
-# question = "牙周病與牙齦炎差在哪?"
-# docs = retriever.invoke(question)
-# generation = rag_chain.invoke({"documents": docs, "question": question})
-# answer_grader.invoke({"question": question,"generation": generation})
 
 """# Graph
 
@@ -540,48 +462,6 @@ def grade_rag_generation(state):
 
 """## Build Graph"""
 
-# workflow = StateGraph(GraphState)
-
-# # Define the nodes
-# workflow.add_node("web_search", web_search) # web search
-# workflow.add_node("retrieve", retrieve) # retrieve
-# workflow.add_node("retrieval_grade", retrieval_grade) # retrieval grade
-# workflow.add_node("rag_generate", rag_generate) # rag
-# workflow.add_node("plain_answer", plain_answer) # llm
-
-# # Build graph
-# workflow.set_conditional_entry_point(
-#     route_question,
-#     {
-#         "web_search": "web_search",
-#         "vectorstore": "retrieve",
-#         "plain_answer": "plain_answer",
-#     },
-# )
-# workflow.add_edge("retrieve", "retrieval_grade")
-# workflow.add_edge("web_search", "retrieval_grade")
-# workflow.add_conditional_edges(
-#     "retrieval_grade",
-#     route_retrieval,
-#     {
-#         "web_search": "web_search",
-#         "rag_generate": "rag_generate",
-#     },
-# )
-# workflow.add_conditional_edges(
-#     "rag_generate",
-#     grade_rag_generation,
-#     {
-#         "not supported": "rag_generate", # Hallucinations: re-generate
-#         "not useful": "web_search", # Fails to answer question: fall-back to web-search
-#         "useful": END,
-#     },
-# )
-# workflow.add_edge("plain_answer", END)
-
-# # Compile
-# app = workflow.compile()
-
 class PlainGraph:
     def __init__(self):
         self.workflow = StateGraph(GraphState)
@@ -704,9 +584,11 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--llm", type=str, default="openai", 
-        help="Specify the LLM to use, e.g., 'openai' or 'llama3'"
+        help="Specify the LLM to use, e.g., 'openai' or 'llama2'"
     )
     args = parser.parse_args()
+
+    llm_type = args.llm
     
     # Run the main function with the specified graph
     run("怎麼識別可疑物品?", args.flag)

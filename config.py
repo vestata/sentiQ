@@ -1,3 +1,5 @@
 OPENAI_API_KEY = ""
 
 TAVILY_API_KEY = ""
+
+HF_TOKEN = ""

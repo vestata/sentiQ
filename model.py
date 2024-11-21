@@ -2,29 +2,43 @@ from langchain.llms import HuggingFacePipeline
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 from langchain_openai.chat_models import ChatOpenAI
 import torch
+import os
+import config
 
-def get_llm(llm_type="openai", model_name="gpt-3.5-turbo"):
+
+hf_token = config.HF_TOKEN
+llm_type = "breeze"
+
+def get_llm(llm_type=llm_type):
     if llm_type == "openai":
-        return ChatOpenAI(model=model_name, temperature=0)
-    elif llm_type == "huggingface":
-        # Initialize a local HuggingFace model
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            device_map="auto",
-            torch_dtype=torch.float16,
-        )
-        # Create a pipeline for text generation
-        hf_pipeline = pipeline(
-            "text-generation",
-            model=model,
-            tokenizer=tokenizer,
-            max_length=512,
-            temperature=0,
-            do_sample=False,
-            eos_token_id=tokenizer.eos_token_id,
-        )
-        # Return the HuggingFacePipeline LLM
-        return HuggingFacePipeline(pipeline=hf_pipeline)
+        print("Using OpenAI  gpt-3.5-turbo")
+        return ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
+    elif llm_type == "llama2":
+        model_name = "meta-llama/Llama-2-7b-chat-hf"
+        print(f"loading HuggingFace model:{model_name}...")
+    elif llm_type == "breeze":
+        model_name = "MediaTek-Research/Breeze-7B-Instruct-v1_0"
+        print(f"loaing HuggingFace model:{model_name}...")
     else:
-        raise ValueError(f"Unsupported llm_type: {llm_type}")
+        raise ValueError(f"invalid llm_type：{llm_type}")
+
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=hf_token)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        device_map="auto",
+        torch_dtype=torch.float16,
+        use_auth_token=hf_token,
+    )
+
+    hf_pipeline = pipeline(
+        "text-generation",
+        model=model,
+        tokenizer=tokenizer,
+        max_length=512,
+        temperature=0,
+        do_sample=False,
+        eos_token_id=tokenizer.eos_token_id,
+    )
+
+    return HuggingFacePipeline(pipeline=hf_pipeline)
