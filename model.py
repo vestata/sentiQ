@@ -1,4 +1,4 @@
-from langchain.llms import HuggingFacePipeline
+from langchain_huggingface import HuggingFacePipeline
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 from langchain_openai.chat_models import ChatOpenAI
 import torch
@@ -7,7 +7,7 @@ import config
 
 
 hf_token = config.HF_TOKEN
-llm_type = "breeze"
+llm_type = "llama2"
 
 def get_llm(llm_type=llm_type):
     if llm_type == "openai":
@@ -23,22 +23,24 @@ def get_llm(llm_type=llm_type):
         raise ValueError(f"invalid llm_type：{llm_type}")
 
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=hf_token)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, token=hf_token)
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
-        device_map="auto",
         torch_dtype=torch.float16,
-        use_auth_token=hf_token,
+        device_map={"": "cuda"},
+        token=hf_token,
     )
 
     hf_pipeline = pipeline(
         "text-generation",
         model=model,
         tokenizer=tokenizer,
-        max_length=512,
-        temperature=0,
-        do_sample=False,
-        eos_token_id=tokenizer.eos_token_id,
+        max_length=512,         
+        truncation=True,         
+        do_sample=False,       
+        temperature=0.7,         
+        top_p=0.9,               
+        pad_token_id=tokenizer.eos_token_id,
     )
 
     return HuggingFacePipeline(pipeline=hf_pipeline)
