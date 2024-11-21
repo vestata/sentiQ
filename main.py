@@ -503,7 +503,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--llm", type=str, default="openai",
-        help="Specify the LLM to use, e.g., 'openai' or 'llama2'"
+        help="Specify the LLM to use, e.g., 'openai', 'llama2' or lm_studio"
     )
     args = parser.parse_args()
 

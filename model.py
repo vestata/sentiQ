@@ -7,20 +7,30 @@ import config
 
 
 hf_token = config.HF_TOKEN
-llm_type = "llama2"
+llm_type = "lm_studio"
 
 def get_llm(llm_type=llm_type):
     if llm_type == "openai":
         print("Using OpenAI  gpt-3.5-turbo")
         return ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
     elif llm_type == "llama2":
-        model_name = "meta-llama/Llama-2-7b-chat-hf"
+        model_name = "meta-llama/Llama-3.2-1B"
         print(f"loading HuggingFace model:{model_name}...")
     elif llm_type == "breeze":
         model_name = "MediaTek-Research/Breeze-7B-Instruct-v1_0"
         print(f"loaing HuggingFace model:{model_name}...")
+    elif llm_type == "lm_studio":
+        print("Using LM Studio backend")
+        api_base = "http://localhost:1234/v1"  # Adjust to your LM Studio API URL
+        api_key = "lm-studio"
+
+        return ChatOpenAI(
+            temperature=0.8,
+            openai_api_base=api_base,
+            openai_api_key=api_key,
+        )
     else:
-        raise ValueError(f"invalid llm_type：{llm_type}")
+        raise ValueError(f"invalid llm_type:{llm_type}")
 
 
     tokenizer = AutoTokenizer.from_pretrained(model_name, token=hf_token)
@@ -37,9 +47,10 @@ def get_llm(llm_type=llm_type):
         tokenizer=tokenizer,
         max_length=512,         
         truncation=True,         
-        do_sample=False,       
-        temperature=0.7,         
+        do_sample=True,       
+        temperature=0.8,         
         top_p=0.9,               
+        repetition_penalty=1.2,
         pad_token_id=tokenizer.eos_token_id,
     )
 
