@@ -5,7 +5,9 @@ from langchain_openai.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
 import pytesseract
 import os
+import config
 
+os.environ["OPENAI_API_KEY"] = config.OPENAI_API_KEY
 
 pdf_path = "data/data1.pdf"
 persist_directory = "vectordb"
