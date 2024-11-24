@@ -21,8 +21,8 @@ from langgraph.graph import END, StateGraph
 os.environ["OPENAI_API_KEY"] = config.OPENAI_API_KEY
 os.environ['TAVILY_API_KEY'] = config.TAVILY_API_KEY
 
-tmp_type = "lm_studio"
-# tmp_type = "openai"
+# tmp_type = "lm_studio"
+tmp_type = "openai"
 
 # 建立 retriever
 retriever = rag_dataloader.vectorstore.as_retriever()
@@ -38,9 +38,9 @@ web_search_tool = TavilySearchResults()
 
 # Prompt Template
 instruction = """
-你是一個決策系統，負責將使用者的問題導向適當的工具。
-如果問題與"如何識別可疑人物/物品"有關，請輸出'vectorstore'。
-否則，請輸出'web_search'。
+You are a decision-making system responsible for directing user questions to the appropriate tool.
+If the question is related to "how to identify suspicious persons/objects", output 'vectorstore'.
+Otherwise, output 'web_search'.
 """
 
 route_prompt = ChatPromptTemplate.from_messages(
@@ -59,16 +59,18 @@ question_router = route_prompt | llm | StrOutputParser()
 # Prompt Template
 
 instruction = """
-你是一位負責處理使用者問題的助手，請利用提取出來的文件內容來回應問題。
-若問題的答案無法從文件內取得，請直接回覆你不知道，禁止虛構答案。
-注意：請確保答案的準確性。
+You are an assistant responsible for addressing user questions. Utilize the information extracted from the provided documents to respond to the questions.
+
+If the answer to a question cannot be found within the documents, simply reply that you don't know. Do not fabricate an answer.
+
+Note: Please ensure the accuracy of your answers.
 """
 
 prompt = ChatPromptTemplate.from_messages(
     [
         ("system", instruction),
-        ("system", "文件: \n\n {documents}"),
-        ("human", "問題: {question}"),
+        ("system", "documents: \n\n {documents}"),
+        ("human", "question: {question}"),
     ]
 )
 
@@ -79,14 +81,14 @@ rag_chain = prompt | llm | StrOutputParser()
 
 # Prompt Template
 instruction = """
-你是一位負責處理使用者問題的助手，請利用你的知識來回應問題。
-回應問題時請確保答案的準確性，勿虛構答案。
+You are an assistant responsible for addressing user questions. Utilize your knowledge to respond to the questions.
+When responding to questions, please ensure the accuracy of your answers. Do not fabricate an answer.
 """
 
 prompt = ChatPromptTemplate.from_messages(
     [
         ("system", instruction),
-        ("human", "問題: {question}"),
+        ("human", "question: {question}"),
     ]
 )
 
@@ -101,14 +103,16 @@ llm_chain = prompt | llm | StrOutputParser()
 
 # Prompt Template
 instruction = """
-你是一個評分的人員，負責評估文件與使用者問題的關聯性。
-如果文件包含與使用者問題相關的關鍵字或語意，則將其評為相關。
-輸出 'yes' 或 'no' 代表文件與問題的相關與否。
+You are an evaluator responsible for assessing the relevance of a document to a user's question.
+
+If the document contains keywords or semantics related to the user's question, rate it as relevant.
+
+Output 'yes' or 'no' to indicate whether the document is relevant to the question.
 """
 grade_prompt = ChatPromptTemplate.from_messages(
     [
         ("system", instruction),
-        ("human", "文件: \n\n {document} \n\n 使用者問題: {question}"),
+        ("human", "document: \n\n {document} \n\n question: {question}"),
     ]
 )
 
@@ -123,14 +127,16 @@ retrieval_grader = grade_prompt | llm | StrOutputParser()
 
 # Prompt Template
 instruction = """
-你是一個評分的人員，負責確認LLM的回應是否為虛構的。
-以下會給你一個文件與相對應的LLM回應，請輸出 'yes' 或 'no'做為判斷結果。
-'Yes' 代表LLM的回答是虛構的，未基於文件內容。'No' 則代表LLM的回答並未虛構，而是基於文件內容得出。
+You are an evaluator responsible for determining if an LLM's response is fabricated.
+
+You will be given a document and the corresponding LLM response. Please output 'yes' or 'no' as your judgment.
+
+'Yes' means the LLM's response is fabricated and not based on the document content. 'No' means the LLM's response is not fabricated and is derived from the document content.
 """
 hallucination_prompt = ChatPromptTemplate.from_messages(
     [
         ("system", instruction),
-        ("human", "文件: \n\n {documents} \n\n LLM 回應: {generation}"),
+        ("human", "document: \n\n {documents} \n\n LLM response: {generation}"),
     ]
 )
 
@@ -145,14 +151,15 @@ hallucination_grader = hallucination_prompt | llm | StrOutputParser()
 
 # Prompt Template
 instruction = """
-你是一個評分的人員，負責確認答案是否回應了問題。
-輸出 'yes' 或 'no'。 'Yes' 代表答案確實回應了問題， 'No' 則代表答案並未回應問題。
+You are an evaluator responsible for determining if an answer addresses the question.
+
+Output 'yes' or 'no'. 'Yes' means the answer does address the question. 'No' means the answer does not address the question.
 """
 # Prompt
 answer_prompt = ChatPromptTemplate.from_messages(
     [
         ("system", instruction),
-        ("human", "使用者問題: \n\n {question} \n\n 答案: {generation}"),
+        ("human", "User question: \n\n {question} \n\n answer: {generation}"),
     ]
 )
 
