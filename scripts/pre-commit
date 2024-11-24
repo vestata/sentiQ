@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Clean up API Key in config.py
+if [ -f "config.py" ]; then
+    echo "Cleaning API keys in config.py..."
+    sed -i 's/OPENAI_API_KEY = "[^"]*"/OPENAI_API_KEY = ""/g' config.py
+    sed -i 's/TAVILY_API_KEY = "[^"]*"/TAVILY_API_KEY = ""/g' config.py
+    sed -i 's/HF_TOKEN = "[^"]*"/HF_TOKEN = ""/g' config.py
+else
+    echo "Warning: config.py not found. Skipping API key cleaning."
+fi
+
+if git diff --name-only | grep -q "config.py"; then
+    echo "Staging modified config.py..."
+    git add config.py
+fi
+
+# Format python files
+if command -v black >/dev/null 2>&1; then
+    echo "Running black for Python code formatting..."
+    black .
+else
+    echo "Warning: black is not installed. Skipping code formatting."
+fi
+
+# Format commit message
+commit_msg_file=".git/COMMIT_EDITMSG"
+if [ -f "$commit_msg_file" ]; then
+    echo "Formatting commit message..."
+    MAX_TITLE_LENGTH=50
+    MAX_BODY_LINE_LENGTH=72
+
+    commit_msg=$(cat "$commit_msg_file")
+    title=$(echo "$commit_msg" | head -n 1)
+    body=$(echo "$commit_msg" | tail -n +3)
+    formatted_body=$(echo "$body" | fold -s -w $MAX_BODY_LINE_LENGTH)
+
+    printf "%s\n\n%s" "$title" "$formatted_body" > "$commit_msg_file"
+else
+    echo "Warning: Commit message file not found. Skipping formatting."
+fi
+
+echo "pre-commit hook completed."

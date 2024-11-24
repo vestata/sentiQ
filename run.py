@@ -5,12 +5,17 @@ if __name__ == "__main__":
     # Set up argument parser
     parser = argparse.ArgumentParser(description="Select a state graph.")
     parser.add_argument(
-        "-f", "--flag", type=str, required=True, 
-        help="Specify the graph to use, e.g., 'rag' or 'plain'"
+        "-f",
+        "--flag",
+        type=str,
+        required=True,
+        help="Specify the graph to use, e.g., 'rag' or 'plain'",
     )
     parser.add_argument(
-        "--llm", type=str, default="openai", 
-        help="Specify the LLM to use, e.g., 'openai' or 'llama2'"
+        "--llm",
+        type=str,
+        default="openai",
+        help="Specify the LLM to use, e.g., 'openai' or 'llama2'",
     )
     args = parser.parse_args()
 

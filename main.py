@@ -19,7 +19,7 @@ from langgraph.graph import END, StateGraph
 # from state_graph import WebRagGraph, PlainGraph
 
 os.environ["OPENAI_API_KEY"] = config.OPENAI_API_KEY
-os.environ['TAVILY_API_KEY'] = config.TAVILY_API_KEY
+os.environ["TAVILY_API_KEY"] = config.TAVILY_API_KEY
 
 # tmp_type = "lm_studio"
 tmp_type = "openai"
@@ -175,6 +175,7 @@ answer_grader = answer_prompt | llm | StrOutputParser()
 ## Graph state
 """
 
+
 class GraphState(TypedDict):
     """
     State of graph.
@@ -184,11 +185,14 @@ class GraphState(TypedDict):
         generation: LLM generation
         documents: list of documents
     """
+
     question: str
     generation: str
     documents: List[str]
 
+
 """## Nodes / Conditional edges"""
+
 
 def retrieve(state):
     """
@@ -208,6 +212,7 @@ def retrieve(state):
     documents = retriever.invoke(question)
 
     return {"documents": documents, "question": question}
+
 
 def web_search(state):
     """
@@ -232,6 +237,7 @@ def web_search(state):
 
     return {"documents": documents, "question": question}
 
+
 def retrieval_grade(state):
     """
     Filter retrieved documents based on question.
@@ -252,15 +258,18 @@ def retrieval_grade(state):
     # Score each doc
     filtered_docs = []
     for d in documents:
-        response = retrieval_grader.invoke({"question": question, "document": d.page_content})
+        response = retrieval_grader.invoke(
+            {"question": question, "document": d.page_content}
+        )
         grade = response.strip().lower()
-        if 'yes' in grade:
+        if "yes" in grade:
             print("  -GRADE: DOCUMENT RELEVANT-")
             filtered_docs.append(d)
         else:
             print("  -GRADE: DOCUMENT NOT RELEVANT-")
             continue
     return {"documents": filtered_docs, "question": question}
+
 
 def rag_generate(state):
     """
@@ -281,6 +290,7 @@ def rag_generate(state):
     generation = rag_chain.invoke({"documents": documents, "question": question})
     return {"documents": documents, "question": question, "generation": generation}
 
+
 def plain_generate(state):
     """
     Generate answer using the LLM without vectorstore.
@@ -297,6 +307,7 @@ def plain_generate(state):
 
     generation = llm_chain.invoke({"question": question})
     return {"question": question, "generation": generation}
+
 
 ### Edges ###
 def route_question(state):
@@ -316,16 +327,16 @@ def route_question(state):
     # print("Question Router Output:", source)
     datasource = source.strip().lower()
 
-
-    if 'web_search' in datasource:
+    if "web_search" in datasource:
         print("  -ROUTE TO WEB SEARCH-")
         return "web_search"
-    elif 'vectorstore' in datasource:
+    elif "vectorstore" in datasource:
         print("  -ROUTE TO VECTORSTORE-")
         return "retrieve"
     else:
         print("  -ROUTE TO PLAIN LLM-")
         return "plain_generate"
+
 
 def route_retrieval(state):
     """
@@ -343,12 +354,15 @@ def route_retrieval(state):
 
     if not filtered_documents:
         # All documents have been filtered check_relevance
-        print("  -DECISION: ALL DOCUMENTS ARE NOT RELEVANT TO QUESTION, ROUTE TO WEB SEARCH-")
+        print(
+            "  -DECISION: ALL DOCUMENTS ARE NOT RELEVANT TO QUESTION, ROUTE TO WEB SEARCH-"
+        )
         return "web_search"
     else:
         # We have relevant documents, so generate answer
         print("  -DECISION: GENERATE WITH RAG LLM-")
         return "rag_generate"
+
 
 def grade_rag_generation(state):
     """
@@ -366,27 +380,33 @@ def grade_rag_generation(state):
     documents = state["documents"]
     generation = state["generation"]
 
-    response = hallucination_grader.invoke({"documents": documents, "generation": generation})
+    response = hallucination_grader.invoke(
+        {"documents": documents, "generation": generation}
+    )
     grade = response.strip().lower()
 
     # Check hallucination
-    if 'yes' in grade:
+    if "yes" in grade:
         print("  -DECISION: GENERATION IS NOT GROUNDED IN DOCUMENTS, RE-TRY-")
         return "not supported"
     else:
         print("  -DECISION: GENERATION IS GROUNDED IN DOCUMENTS-")
         # Check question-answering
         print("---GRADE GENERATION vs QUESTION---")
-        response = answer_grader.invoke({"question": question, "generation": generation})
+        response = answer_grader.invoke(
+            {"question": question, "generation": generation}
+        )
         grade = response.strip().lower()
-        if 'no' in grade:
+        if "no" in grade:
             print("  -DECISION: GENERATION DOES NOT ADDRESS QUESTION-")
             return "not useful"
         else:
             print("  -DECISION: GENERATION ADDRESSES QUESTION-")
             return "useful"
 
+
 """## Build Graph"""
+
 
 class PlainGraph:
     def __init__(self):
@@ -409,6 +429,7 @@ class PlainGraph:
         self.setup_nodes()
         self.setup_graph()
         return self.compile_workflow()
+
 
 class WebRagGraph:
     def __init__(self):
@@ -452,7 +473,7 @@ class WebRagGraph:
             grade_rag_generation,
             {
                 "not supported": "rag_generate",  # Hallucinations: re-generate
-                "not useful": "web_search",       # Fails to answer question: fallback to web-search
+                "not useful": "web_search",  # Fails to answer question: fallback to web-search
                 "useful": END,
             },
         )
@@ -467,6 +488,7 @@ class WebRagGraph:
         self.setup_nodes()
         self.setup_graph()
         return self.compile_workflow()
+
 
 # create the web rag graph
 state_graph_web_rag = WebRagGraph()
@@ -485,6 +507,7 @@ apps = {
     "plain": app_plain,
 }
 
+
 def run(question, graph_flag):
     inputs = {"question": question}
     # select the state graph you want to use
@@ -493,21 +516,27 @@ def run(question, graph_flag):
         print("\n")
 
     # Final generation
-    if 'rag_generate' in output.keys():
-        print(output['rag_generate']['generation'])
-    elif 'plain_generate' in output.keys():
-        print(output['plain_generate']['generation'])
+    if "rag_generate" in output.keys():
+        print(output["rag_generate"]["generation"])
+    elif "plain_generate" in output.keys():
+        print(output["plain_generate"]["generation"])
+
 
 if __name__ == "__main__":
     # Set up argument parser
     parser = argparse.ArgumentParser(description="Select a state graph.")
     parser.add_argument(
-        "-f", "--flag", type=str, required=True,
-        help="Specify the graph to use, e.g., 'rag' or 'plain'"
+        "-f",
+        "--flag",
+        type=str,
+        required=True,
+        help="Specify the graph to use, e.g., 'rag' or 'plain'",
     )
     parser.add_argument(
-        "--llm", type=str, default="openai",
-        help="Specify the LLM to use, e.g., 'openai', 'llama2' or lm_studio"
+        "--llm",
+        type=str,
+        default="openai",
+        help="Specify the LLM to use, e.g., 'openai', 'llama2' or lm_studio",
     )
     args = parser.parse_args()
 
