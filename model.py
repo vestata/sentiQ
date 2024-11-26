@@ -1,7 +1,7 @@
-from langchain_huggingface import HuggingFacePipeline
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+# from langchain_huggingface import HuggingFacePipeline
+# from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 from langchain_openai.chat_models import ChatOpenAI
-import torch
+# import torch
 import os
 import config
 
