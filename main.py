@@ -492,10 +492,11 @@ class WebRagGraph:
         self.setup_graph()
         return self.compile_workflow()
 
+
 class PlainWebRagGraph:
     def __init__(self):
         self.workflow = StateGraph(GraphState)
-        
+
     def setup_nodes(self):
         # Define the nodes
         self.workflow.add_node("web_search", web_search)  # web search
@@ -517,7 +518,7 @@ class PlainWebRagGraph:
         # Set up edges
         self.workflow.add_edge("retrieve", "retrieval_grade")
         self.workflow.add_edge("web_search", "retrieval_grade")
-        
+
         # Conditional edges for retrieval grading
         self.workflow.add_conditional_edges(
             "retrieval_grade",
@@ -527,14 +528,14 @@ class PlainWebRagGraph:
                 "rag_generate": "rag_generate",
             },
         )
-        
+
         # Conditional edges for RAG generation grading
         self.workflow.add_conditional_edges(
             "rag_generate",
             grade_rag_generation,
             {
                 "not supported": "rag_generate",  # Hallucinations: re-generate
-                "not useful": "web_search",       # Fails to answer question: fallback to web-search
+                "not useful": "web_search",  # Fails to answer question: fallback to web-search
                 "useful": END,
             },
         )
@@ -561,36 +562,34 @@ app_plain = state_graph_plain.create_app()
 state_graphs = {
     "rag": state_graph_web_rag,
     "plain": state_graph_plain,
-    "exp": (state_graph_plain, state_graph_web_rag)
+    "exp": (state_graph_plain, state_graph_web_rag),
 }
 
-apps = {
-    "rag": app_web_rag,
-    "plain": app_plain,
-    "exp": (app_plain, app_web_rag)
-}
+apps = {"rag": app_web_rag, "plain": app_plain, "exp": (app_plain, app_web_rag)}
 
 
 def run(question, graph_flag):
     inputs = {"question": question}
     # experiment mode (plain and web+rag)
     if graph_flag == "exp":
-        exp_modes = ('rag', 'plain')
-        # record the result output        
-        output_result = {f"{exp_modes[i]}_generate":[] for i in range(len(exp_modes))}
-        
+        exp_modes = ("rag", "plain")
+        # record the result output
+        output_result = {f"{exp_modes[i]}_generate": [] for i in range(len(exp_modes))}
+
         for i in range(len(exp_modes)):
             selected_app = apps.get(exp_modes[i])
             for output in selected_app.stream(inputs):
                 print("\n")
             # append the result in the output list
-            output_result[f"{exp_modes[i]}_generate"] = output[f'{exp_modes[i]}_generate']['generation']
-            print(output[f'{exp_modes[i]}_generate']['generation'])
-        
+            output_result[f"{exp_modes[i]}_generate"] = output[
+                f"{exp_modes[i]}_generate"
+            ]["generation"]
+            print(output[f"{exp_modes[i]}_generate"]["generation"])
+
         # save the outputs to the csv file
         # print("output_result :", output_result)
         save_output_to_csv(output_result, "exp")
-    
+
     # single function plain or web+rag
     else:
         selected_app = apps.get(graph_flag)
@@ -600,13 +599,15 @@ def run(question, graph_flag):
             print("\n")
 
         # Final generation
-        output_result[f"{graph_flag}_generate"] = output[f"{graph_flag}_generate"]["generation"]
+        output_result[f"{graph_flag}_generate"] = output[f"{graph_flag}_generate"][
+            "generation"
+        ]
         print(output_result[f"{graph_flag}_generate"])
         # if "rag_generate" in output.keys():
         #     print(output["rag_generate"]["generation"])
         # elif "plain_generate" in output.keys():
         #     print(output["plain_generate"]["generation"])
-        
+
         save_output_to_csv(output_result, graph_flag)
 
 

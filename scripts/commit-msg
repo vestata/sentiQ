@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Format commit message
+commit_msg_file="$1"
+if [ -f "$commit_msg_file" ]; then
+    MAX_TITLE_LENGTH=50
+    MAX_BODY_LINE_LENGTH=72
+
+    commit_msg=$(cat "$commit_msg_file")
+    title=$(echo "$commit_msg" | head -n 1)
+    body=$(echo "$commit_msg" | tail -n +3)
+    formatted_body=$(echo "$body" | fold -s -w $MAX_BODY_LINE_LENGTH)
+
+    printf "%s\n\n%s" "$title" "$formatted_body" > "$commit_msg_file"
+else
+    echo "Warning: Commit message file not found. Skipping formatting."
+fi
+
+echo "commit-msg hook completed."
+

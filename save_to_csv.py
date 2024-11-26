@@ -2,25 +2,25 @@ import os
 import pandas as pd
 from datetime import datetime
 
+
 def save_output_to_csv(output, file):
-    
+
     file_name = f"{file}_output.csv"
     # 抽取需要儲存的資料
     try:
-        plain_generate = output['plain_generate']
+        plain_generate = output["plain_generate"]
     except:
         plain_generate = []
     try:
-        rag_generate = output['rag_generate']
+        rag_generate = output["rag_generate"]
     except:
         rag_generate = []
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+
     # 將資料存成 DataFrame 格式
-    new_data = pd.DataFrame({
-        "plain": [plain_generate],
-        "rag + web": [rag_generate]
-    }, index=[timestamp])
+    new_data = pd.DataFrame(
+        {"plain": [plain_generate], "rag + web": [rag_generate]}, index=[timestamp]
+    )
 
     # 檢查檔案是否已存在
     if os.path.exists(file_name):
@@ -30,7 +30,7 @@ def save_output_to_csv(output, file):
     else:
         # 若檔案不存在則建立新檔案
         updated_data = new_data
-    
+
     # 儲存至 CSV
     updated_data.to_csv(file_name)
     print(f"Results saved to {file_name}.")
