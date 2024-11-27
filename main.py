@@ -14,7 +14,7 @@ from langchain.schema import Document
 from langgraph.graph import END, StateGraph
 
 from save_to_csv import save_output_to_csv
-
+from prompt import route_prompt, rag_prompt, llm_prompt, relevance_prompt, hallucination_prompt, evalution_prompt
 # ====================================================
 # global parameter (might remove in the future)
 # ====================================================
@@ -33,150 +33,49 @@ retriever = rag_dataloader.vectorstore.as_retriever()
 
 web_search_tool = TavilySearchResults()
 
+# get llm
+llm = model.get_llm(tmp_type)
 
 # ====================================================
 # Route LLM without bind_tools
 # ====================================================
 
-# Prompt Template
-instruction = """
-You are a decision-making system responsible for directing user questions to the appropriate tool.
-If the question is related to "how to identify suspicious persons/objects", output 'vectorstore'.
-Otherwise, output 'web_search'.
-"""
-
-route_prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", instruction),
-        ("human", "{question}"),
-    ]
-)
-
-llm = model.get_llm(tmp_type)
 question_router = route_prompt | llm | StrOutputParser()
 
 # =====================================================
 # LLM & chain
 # =====================================================
-# Prompt Template
 
-instruction = """
-You are an assistant responsible for addressing user questions. Utilize the information extracted from the provided documents to respond to the questions.
-
-If the answer to a question cannot be found within the documents, simply reply that you don't know. Do not fabricate an answer.
-
-Note: Please ensure the accuracy of your answers.
-"""
-
-prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", instruction),
-        ("system", "documents: \n\n {documents}"),
-        ("human", "question: {question}"),
-    ]
-)
-
-llm = model.get_llm(tmp_type)
-rag_chain = prompt | llm | StrOutputParser()
+rag_chain = rag_prompt | llm | StrOutputParser()
 
 """### Plain LLM"""
-
-# Prompt Template
-instruction = """
-You are an assistant responsible for addressing user questions. Utilize your knowledge to respond to the questions.
-When responding to questions, please ensure the accuracy of your answers. Do not fabricate an answer.
-"""
-
-prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", instruction),
-        ("human", "question: {question}"),
-    ]
-)
 
 # =====================================================
 # LLM & chain
 # =====================================================
 
-llm = model.get_llm(tmp_type)
-llm_chain = prompt | llm | StrOutputParser()
+llm_chain = llm_prompt | llm | StrOutputParser()
+
+# =====================================================
+# Grader LLM
+# =====================================================
 
 """### Retrieval Grader"""
 
-# Prompt Template
-instruction = """
-You are an evaluator responsible for assessing the relevance of a document to a user's question.
-
-If the document contains keywords or semantics related to the user's question, rate it as relevant.
-
-Output 'yes' or 'no' to indicate whether the document is relevant to the question.
-"""
-grade_prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", instruction),
-        ("human", "document: \n\n {document} \n\n question: {question}"),
-    ]
-)
-
-# =====================================================
-# Grader LLM
-# =====================================================
-
-llm = model.get_llm(tmp_type)
-retrieval_grader = grade_prompt | llm | StrOutputParser()
+retrieval_grader = relevance_prompt | llm | StrOutputParser()
 
 """### Hallucination Grader"""
 
-# Prompt Template
-instruction = """
-You are an evaluator responsible for determining if an LLM's response is fabricated.
-
-You will be given a document and the corresponding LLM response. Please output 'yes' or 'no' as your judgment.
-
-'Yes' means the LLM's response is fabricated and not based on the document content. 'No' means the LLM's response is not fabricated and is derived from the document content.
-"""
-hallucination_prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", instruction),
-        ("human", "document: \n\n {documents} \n\n LLM response: {generation}"),
-    ]
-)
-
-# =====================================================
-# Grader LLM
-# =====================================================
-
-llm = model.get_llm(tmp_type)
 hallucination_grader = hallucination_prompt | llm | StrOutputParser()
 
 """### Answer Grader"""
 
-# Prompt Template
-instruction = """
-You are an evaluator responsible for determining if an answer addresses the question.
-
-Output 'yes' or 'no'. 'Yes' means the answer does address the question. 'No' means the answer does not address the question.
-"""
-# Prompt
-answer_prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", instruction),
-        ("human", "User question: \n\n {question} \n\n answer: {generation}"),
-    ]
-)
-
-# =====================================================
-# LLM
-# =====================================================
-
-llm = model.get_llm(tmp_type)
-answer_grader = answer_prompt | llm | StrOutputParser()
+answer_grader = evalution_prompt | llm | StrOutputParser()
 
 """# Graph
 
 ## Graph state
 """
-
 
 class GraphState(TypedDict):
     """
@@ -413,7 +312,6 @@ def grade_rag_generation(state):
 
 """## Build Graph"""
 
-
 class PlainGraph:
     def __init__(self):
         self.workflow = StateGraph(GraphState)
@@ -571,10 +469,10 @@ state_graphs = {
 apps = {"rag": app_web_rag, "plain": app_plain, "exp": (app_plain, app_web_rag)}
 
 
-def run(question, graph_flag):
+def run(question, graph_type, llm_type):
     inputs = {"question": question}
     # experiment mode (plain and web+rag)
-    if graph_flag == "exp":
+    if graph_type == "exp":
         exp_modes = ("rag", "plain")
         # record the result output
         output_result = {f"{exp_modes[i]}_generate": [] for i in range(len(exp_modes))}
@@ -584,7 +482,9 @@ def run(question, graph_flag):
             for output in selected_app.stream(inputs):
                 print("\n")
             # append the result in the output list
-            output_result[f"{exp_modes[i]}_generate"] = output[f"{exp_modes[i]}_generate"]["generation"]
+            output_result[f"{exp_modes[i]}_generate"] = output[
+                f"{exp_modes[i]}_generate"
+            ]["generation"]
             print(output[f"{exp_modes[i]}_generate"]["generation"])
 
         # save the outputs to the csv file
@@ -593,21 +493,23 @@ def run(question, graph_flag):
 
     # single function plain or web+rag
     else:
-        selected_app = apps.get(graph_flag)
+        selected_app = apps.get(graph_type)
         # record the result output
-        output_result = {f"{graph_flag}_generate": []}
+        output_result = {f"{graph_type}_generate": []}
         for output in selected_app.stream(inputs):
             print("\n")
 
         # Final generation
-        output_result[f"{graph_flag}_generate"] = output[f"{graph_flag}_generate"]["generation"]
-        print(output_result[f"{graph_flag}_generate"])
+        output_result[f"{graph_type}_generate"] = output[f"{graph_type}_generate"][
+            "generation"
+        ]
+        print(output_result[f"{graph_type}_generate"])
         # if "rag_generate" in output.keys():
         #     print(output["rag_generate"]["generation"])
         # elif "plain_generate" in output.keys():
         #     print(output["plain_generate"]["generation"])
 
-        save_output_to_csv(question, output_result, graph_flag)
+        save_output_to_csv(question, output_result, graph_type)
 
 
 if __name__ == "__main__":
@@ -621,20 +523,19 @@ if __name__ == "__main__":
         help="Specify the graph to use, e.g., 'rag', 'plain' or 'exp'",
     )
     parser.add_argument(
+        "-l",
         "--llm",
         type=str,
         default="openai",
-        help="Specify the LLM to use, e.g., 'openai', 'llama2' or lm_studio",
+        help="Specify the LLM to use, e.g., 'openai', 'local",
     )
     args = parser.parse_args()
-
-    llm_type = args.llm
-
+    
     # Run the main function with the specified graph
     # run("怎麼識別可疑物品?", args.flag)
     # run("怎麼辨識可疑人物?", args.flag)
     # run("太陽是什麼顏色?", args.flag)
 
-    run("How to identify the suspicious objects?", args.flag)
-    run("How to identift the suspicious person?", args.flag)
-    run("What's the color of the sun?", args.flag)
+    run("How to identify the suspicious objects?", args.flag, args.llm)
+    run("How to identift the suspicious person?", args.flag, args.llm)
+    run("What's the color of the sun?", args.flag, args.llm)
