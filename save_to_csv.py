@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 
 
-def save_output_to_csv(output, file):
+def save_output_to_csv(question, output, file):
 
     file_name = f"{file}_output.csv"
     # 抽取需要儲存的資料
@@ -19,7 +19,7 @@ def save_output_to_csv(output, file):
 
     # 將資料存成 DataFrame 格式
     new_data = pd.DataFrame(
-        {"plain": [plain_generate], "rag + web": [rag_generate]}, index=[timestamp]
+        {"question": [question], "plain": [plain_generate], "rag + web": [rag_generate]}, index=[timestamp]
     )
 
     # 檢查檔案是否已存在

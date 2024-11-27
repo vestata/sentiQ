@@ -234,7 +234,10 @@ def web_search(state):
     # Web search
     docs = web_search_tool.invoke({"query": question})
     # web_results = [Document(page_content=d["content"]) for d in docs]
-    web_results = [Document(page_content=docs[0]["content"]), Document(page_content=docs[1]["content"])]
+    web_results = [
+        Document(page_content=docs[0]["content"]),
+        Document(page_content=docs[1]["content"]),
+    ]
 
     documents = documents + web_results
 
@@ -357,7 +360,9 @@ def route_retrieval(state):
 
     if not filtered_documents:
         # All documents have been filtered check_relevance
-        print("  -DECISION: ALL DOCUMENTS ARE NOT RELEVANT TO QUESTION, ROUTE TO WEB SEARCH-")
+        print(
+            "  -DECISION: ALL DOCUMENTS ARE NOT RELEVANT TO QUESTION, ROUTE TO WEB SEARCH-"
+        )
         return "web_search"
     else:
         # We have relevant documents, so generate answer
@@ -579,14 +584,12 @@ def run(question, graph_flag):
             for output in selected_app.stream(inputs):
                 print("\n")
             # append the result in the output list
-            output_result[f"{exp_modes[i]}_generate"] = output[
-                f"{exp_modes[i]}_generate"
-            ]["generation"]
+            output_result[f"{exp_modes[i]}_generate"] = output[f"{exp_modes[i]}_generate"]["generation"]
             print(output[f"{exp_modes[i]}_generate"]["generation"])
 
         # save the outputs to the csv file
         # print("output_result :", output_result)
-        save_output_to_csv(output_result, "exp")
+        save_output_to_csv(question, output_result, "exp")
 
     # single function plain or web+rag
     else:
@@ -597,16 +600,14 @@ def run(question, graph_flag):
             print("\n")
 
         # Final generation
-        output_result[f"{graph_flag}_generate"] = output[f"{graph_flag}_generate"][
-            "generation"
-        ]
+        output_result[f"{graph_flag}_generate"] = output[f"{graph_flag}_generate"]["generation"]
         print(output_result[f"{graph_flag}_generate"])
         # if "rag_generate" in output.keys():
         #     print(output["rag_generate"]["generation"])
         # elif "plain_generate" in output.keys():
         #     print(output["plain_generate"]["generation"])
 
-        save_output_to_csv(output_result, graph_flag)
+        save_output_to_csv(question, output_result, graph_flag)
 
 
 if __name__ == "__main__":
@@ -633,7 +634,7 @@ if __name__ == "__main__":
     # run("怎麼識別可疑物品?", args.flag)
     # run("怎麼辨識可疑人物?", args.flag)
     # run("太陽是什麼顏色?", args.flag)
-    
+
     run("How to identify the suspicious objects?", args.flag)
     run("How to identift the suspicious person?", args.flag)
     run("What's the color of the sun?", args.flag)

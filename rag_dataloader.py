@@ -46,7 +46,8 @@ else:
         # 使用 Tesseract OCR 提取文字
         text = pytesseract.image_to_string(
             # image, lang="chi_tra"
-            image, lang="eng"
+            image,
+            lang="eng",
         )  # 若為繁體中文，可改為 'chi_tra'
         all_text += text + "\n"
 
