@@ -10,11 +10,11 @@ def save_output_to_csv(output, file):
     try:
         plain_generate = output["plain_generate"]
     except:
-        plain_generate = []
+        plain_generate = ""
     try:
         rag_generate = output["rag_generate"]
     except:
-        rag_generate = []
+        rag_generate = ""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # 將資料存成 DataFrame 格式

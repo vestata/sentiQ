@@ -234,7 +234,7 @@ def web_search(state):
     # Web search
     docs = web_search_tool.invoke({"query": question})
     # web_results = [Document(page_content=d["content"]) for d in docs]
-    web_results = [Document(page_content=docs[0]["content"])]
+    web_results = [Document(page_content=docs[0]["content"]), Document(page_content=docs[1]["content"])]
 
     documents = documents + web_results
 
@@ -357,9 +357,7 @@ def route_retrieval(state):
 
     if not filtered_documents:
         # All documents have been filtered check_relevance
-        print(
-            "  -DECISION: ALL DOCUMENTS ARE NOT RELEVANT TO QUESTION, ROUTE TO WEB SEARCH-"
-        )
+        print("  -DECISION: ALL DOCUMENTS ARE NOT RELEVANT TO QUESTION, ROUTE TO WEB SEARCH-")
         return "web_search"
     else:
         # We have relevant documents, so generate answer
@@ -632,6 +630,10 @@ if __name__ == "__main__":
     llm_type = args.llm
 
     # Run the main function with the specified graph
-    run("怎麼識別可疑物品?", args.flag)
-    run("怎麼辨識可疑人物?", args.flag)
-    run("太陽是什麼顏色?", args.flag)
+    # run("怎麼識別可疑物品?", args.flag)
+    # run("怎麼辨識可疑人物?", args.flag)
+    # run("太陽是什麼顏色?", args.flag)
+    
+    run("How to identify the suspicious objects?", args.flag)
+    run("How to identift the suspicious person?", args.flag)
+    run("What's the color of the sun?", args.flag)

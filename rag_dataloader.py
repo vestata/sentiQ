@@ -9,7 +9,9 @@ import config
 
 os.environ["OPENAI_API_KEY"] = config.OPENAI_API_KEY
 
-pdf_path = "data/data1.pdf"
+pdf_path = "data/MARITIME_ACTIVITY_SUSPICIOUS_ACTIVITY_FA.pdf"
+# pdf_path = "data/data1.pdf"
+
 persist_directory = "vectordb"
 
 
@@ -43,7 +45,8 @@ else:
     for i, image in enumerate(images):
         # 使用 Tesseract OCR 提取文字
         text = pytesseract.image_to_string(
-            image, lang="chi_tra"
+            # image, lang="chi_tra"
+            image, lang="eng"
         )  # 若為繁體中文，可改為 'chi_tra'
         all_text += text + "\n"
 
