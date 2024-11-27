@@ -101,3 +101,19 @@ evalution_prompt = ChatPromptTemplate.from_messages(
         ("human", "User question: \n\n {question} \n\n answer: {generation}"),
     ]
 )
+
+# Dangerous Judgement
+
+# Prompt Template
+dangerous_instruction = """
+You are an evaluator responsible for determining if an answer content describes a dangerous situation or not.
+
+Output 'yes' or 'no'. 'Yes' means the answer describes a dangerous situation. 'No' means the answer does not describe a dangerous situation.
+"""
+# Prompt
+danger_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", dangerous_instruction),
+        ("human", "User answer: {generation}"),
+    ]
+)
