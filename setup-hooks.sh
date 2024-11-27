@@ -1,5 +1,8 @@
 #!/bin/bash
 
+sudo apt install tesseract-ocr
+export TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata/
+echo "Install tesseract-ocr for rag_dataloader.py"
 
 chmod +x scripts/*
 
