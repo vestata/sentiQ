@@ -21,7 +21,7 @@ from prompt import (
     relevance_prompt,
     hallucination_prompt,
     evalution_prompt,
-    danger_prompt
+    danger_prompt,
 )
 
 
@@ -29,26 +29,17 @@ from prompt import (
 # global parameter (might remove in the future)
 # ====================================================
 os.environ["OPENAI_API_KEY"] = config.OPENAI_API_KEY
-os.environ["TAVILY_API_KEY"] = config.TAVILY_API_KEY
-
 
 def run(question, graph_type, llm_type):
     inputs = {"question": question}
-    
+
     llm = model.get_llm(llm_type)
-    
+
     # llm_type = "lm_studio"
     # llm_type = "openai"
 
     # 建立 retriever
     retriever = rag_dataloader.vectorstore.as_retriever()
-
-    """## Web Search Tool"""
-
-    web_search_tool = TavilySearchResults()
-
-    # get llm
-    # llm = model.get_llm(llm_type)
 
     # ====================================================
     # Route LLM without bind_tools
@@ -85,16 +76,14 @@ def run(question, graph_type, llm_type):
     """### Answer Grader"""
 
     answer_grader = evalution_prompt | llm | StrOutputParser()
-    
-    
+
     """### Dangerous Judge"""
     danger_judge = danger_prompt | llm | StrOutputParser()
-    
+
     """# Graph
 
     ## Graph state
     """
-
 
     class GraphState(TypedDict):
         """
@@ -111,9 +100,7 @@ def run(question, graph_type, llm_type):
         dangerous: str
         documents: List[str]
 
-
     """## Nodes / Conditional edges"""
-
 
     def retrieve(state):
         """
@@ -133,35 +120,6 @@ def run(question, graph_type, llm_type):
         documents = retriever.invoke(question)
 
         return {"documents": documents, "question": question}
-
-
-    def web_search(state):
-        """
-        Web search based on the re-phrased question.
-
-        Args:
-            state (dict): The current graph state
-
-        Returns:
-            state (dict): Updates documents key with appended web results
-        """
-
-        print("---WEB SEARCH---")
-        question = state["question"]
-        documents = []
-
-        # Web search
-        docs = web_search_tool.invoke({"query": question})
-        # web_results = [Document(page_content=d["content"]) for d in docs]
-        web_results = [
-            Document(page_content=docs[0]["content"]),
-            Document(page_content=docs[1]["content"]),
-        ]
-
-        documents = documents + web_results
-
-        return {"documents": documents, "question": question}
-
 
     def retrieval_grade(state):
         """
@@ -195,7 +153,6 @@ def run(question, graph_type, llm_type):
                 continue
         return {"documents": filtered_docs, "question": question}
 
-
     def rag_generate(state):
         """
         Generate answer using vectorstore / web search
@@ -215,7 +172,6 @@ def run(question, graph_type, llm_type):
         generation = rag_chain.invoke({"documents": documents, "question": question})
         return {"documents": documents, "question": question, "generation": generation}
 
-
     def plain_generate(state):
         """
         Generate answer using the LLM without vectorstore.
@@ -232,7 +188,6 @@ def run(question, graph_type, llm_type):
 
         generation = llm_chain.invoke({"question": question})
         return {"question": question, "generation": generation}
-
 
     ### Edges ###
     def route_question(state):
@@ -251,18 +206,15 @@ def run(question, graph_type, llm_type):
         source = question_router.invoke({"question": question})
         # print("Question Router Output:", source)
         datasource = source.strip().lower()
-
-        if "web_search" in datasource:
-            print("  -ROUTE TO WEB SEARCH-")
-            return "web_search"
-        elif "vectorstore" in datasource:
+        
+        if "vectorstore" in datasource:
             print("  -ROUTE TO VECTORSTORE-")
             return "retrieve"
         else:
             print("  -ROUTE TO PLAIN LLM-")
             return "plain_generate"
 
-
+    # May not need this
     def route_retrieval(state):
         """
         Determines whether to generate an answer, or use websearch.
@@ -277,17 +229,8 @@ def run(question, graph_type, llm_type):
         print("---ROUTE RETRIEVAL---")
         filtered_documents = state["documents"]
 
-        if not filtered_documents:
-            # All documents have been filtered check_relevance
-            print(
-                "  -DECISION: ALL DOCUMENTS ARE NOT RELEVANT TO QUESTION, ROUTE TO WEB SEARCH-"
-            )
-            return "web_search"
-        else:
-            # We have relevant documents, so generate answer
-            print("  -DECISION: GENERATE WITH RAG LLM-")
-            return "rag_generate"
-
+        print("  -DECISION: GENERATE WITH RAG LLM-")
+        return "rag_generate"
 
     def grade_rag_generation(state):
         """
@@ -322,12 +265,14 @@ def run(question, graph_type, llm_type):
                 {"question": question, "generation": generation}
             )
             grade = response.strip().lower()
-            if "no" in grade:
-                print("  -DECISION: GENERATION DOES NOT ADDRESS QUESTION-")
-                return "not useful"
-            else:
-                print("  -DECISION: GENERATION ADDRESSES QUESTION-")
-                return "useful"
+            # if "no" in grade:
+            #     print("  -DECISION: GENERATION DOES NOT ADDRESS QUESTION-")
+            #     return "not useful"
+            # else:
+            #     print("  -DECISION: GENERATION ADDRESSES QUESTION-")
+            #     return "useful"
+            print("  -DECISION: GENERATION ADDRESSES QUESTION-")
+            return "useful"
 
     def danger_judgement_generate(state):
         """
@@ -340,11 +285,11 @@ def run(question, graph_type, llm_type):
             str: Decision for next node to call
         """
         print("---DANGEROUS JUDGEMENT---")
-        
+
         generation = state["generation"]
 
         response = danger_judge.invoke({"generation": generation})
-        
+
         result = response.strip().lower()
 
         # Check the situation is dangerous or not
@@ -354,10 +299,9 @@ def run(question, graph_type, llm_type):
             judgement = "yes"
         else:
             print("  -DECISION: THE SITUATION IS NOT DANGEROUS-")
-            judgement =  "no"
-        
-        return {"dangerous": judgement, "question": question, "generation": generation}
+            judgement = "no"
 
+        return {"dangerous": judgement, "question": question, "generation": generation}
 
     """## Build Graph"""
 
@@ -368,7 +312,9 @@ def run(question, graph_type, llm_type):
         def setup_nodes(self):
             # Define the nodes
             self.workflow.add_node("plain_generate", plain_generate)  # llm
-            self.workflow.add_node("danger_judgement_generate", danger_judgement_generate)
+            self.workflow.add_node(
+                "danger_judgement_generate", danger_judgement_generate
+            )
             self.workflow.set_entry_point("plain_generate")
 
         def setup_graph(self):
@@ -385,40 +331,40 @@ def run(question, graph_type, llm_type):
             self.setup_graph()
             return self.compile_workflow()
 
-
-    class WebRagGraph:
+    class RagGraph:
         def __init__(self):
             self.workflow = StateGraph(GraphState)
 
         def setup_nodes(self):
             # Define the nodes
-            self.workflow.add_node("web_search", web_search)  # web search
             self.workflow.add_node("retrieve", retrieve)  # retrieve
-            self.workflow.add_node("retrieval_grade", retrieval_grade)  # retrieval grade
+            self.workflow.add_node(
+                "retrieval_grade", retrieval_grade
+            )  # retrieval grade
             self.workflow.add_node("rag_generate", rag_generate)  # rag
             self.workflow.add_node("plain_generate", plain_generate)  # llm
-            self.workflow.add_node("danger_judgement_generate", danger_judgement_generate) # danger judgement
+            self.workflow.add_node(
+                "danger_judgement_generate", danger_judgement_generate
+            )  # danger judgement
 
         def setup_graph(self):
             # Build graph and set entry points
             self.workflow.set_conditional_entry_point(
                 route_question,
                 {
-                    "web_search": "web_search",
                     "retrieve": "retrieve",
                     "plain_generate": "plain_generate",
                 },
             )
             # Set up edges
             self.workflow.add_edge("retrieve", "retrieval_grade")
-            self.workflow.add_edge("web_search", "retrieval_grade")
 
+            # May not need this
             # Conditional edges for retrieval grading
             self.workflow.add_conditional_edges(
                 "retrieval_grade",
                 route_retrieval,
                 {
-                    "web_search": "web_search",
                     "rag_generate": "rag_generate",
                 },
             )
@@ -429,7 +375,6 @@ def run(question, graph_type, llm_type):
                 grade_rag_generation,
                 {
                     "not supported": "rag_generate",  # Hallucinations: re-generate
-                    "not useful": "web_search",  # Fails to answer question: fallback to web-search
                     "useful": "danger_judgement_generate",
                 },
             )
@@ -447,86 +392,24 @@ def run(question, graph_type, llm_type):
             return self.compile_workflow()
 
 
-    # class PlainWebRagGraph:
-    #     def __init__(self):
-    #         self.workflow = StateGraph(GraphState)
-
-    #     def setup_nodes(self):
-    #         # Define the nodes
-    #         self.workflow.add_node("web_search", web_search)  # web search
-    #         self.workflow.add_node("retrieve", retrieve)  # retrieve
-    #         self.workflow.add_node("retrieval_grade", retrieval_grade)  # retrieval grade
-    #         self.workflow.add_node("rag_generate", rag_generate)  # rag
-    #         self.workflow.add_node("plain_generate", plain_generate)  # llm
-
-    #     def setup_graph(self):
-    #         # Build graph and set entry points
-    #         self.workflow.set_conditional_entry_point(
-    #             route_question,
-    #             {
-    #                 "web_search": "web_search",
-    #                 "vectorstore": "retrieve",
-    #                 "plain_generate": "plain_generate",
-    #             },
-    #         )
-    #         # Set up edges
-    #         self.workflow.add_edge("retrieve", "retrieval_grade")
-    #         self.workflow.add_edge("web_search", "retrieval_grade")
-
-    #         # Conditional edges for retrieval grading
-    #         self.workflow.add_conditional_edges(
-    #             "retrieval_grade",
-    #             route_retrieval,
-    #             {
-    #                 "web_search": "web_search",
-    #                 "rag_generate": "rag_generate",
-    #             },
-    #         )
-
-    #         # Conditional edges for RAG generation grading
-    #         self.workflow.add_conditional_edges(
-    #             "rag_generate",
-    #             grade_rag_generation,
-    #             {
-    #                 "not supported": "rag_generate",  # Hallucinations: re-generate
-    #                 "not useful": "web_search",  # Fails to answer question: fallback to web-search
-    #                 "useful": END,
-    #             },
-    #         )
-    #         self.workflow.add_edge("plain_generate", END)
-
-    #     def compile_workflow(self):
-    #         # Compile the workflow into an app
-    #         return self.workflow.compile()
-
-    #     def create_app(self):
-    #         # Public method to set up and compile workflow
-    #         self.setup_nodes()
-    #         self.setup_graph()
-    #         return self.compile_workflow()
-
     # Create the plain llm graph
     state_graph_plain = PlainGraph()
     app_plain = state_graph_plain.create_app()
-    
-    # Create the web rag graph
-    state_graph_web_rag = WebRagGraph()
-    app_web_rag = state_graph_web_rag.create_app()
-    
+
+    # Create the RAG graph
+    state_graph_rag = RagGraph()
+    app_rag = state_graph_rag.create_app()
 
     """### 實際測試"""
     state_graphs = {
-        "rag": state_graph_web_rag,
+        "rag": state_graph_rag,
         "plain": state_graph_plain,
-        "exp": (state_graph_plain, state_graph_web_rag),
+        "exp": (state_graph_plain, state_graph_rag),
     }
 
-    apps = {"rag": app_web_rag, "plain": app_plain, "exp": (app_plain, app_web_rag)}
-    
-    
-    
-    
-    # experiment mode (plain and web+rag)
+    apps = {"rag": app_rag, "plain": app_plain, "exp": (app_plain, app_rag)}
+
+    # experiment mode (plain and rag)
     if graph_type == "exp":
         exp_modes = ("rag", "plain")
         # record the result output
@@ -536,18 +419,20 @@ def run(question, graph_type, llm_type):
             selected_app = apps.get(exp_modes[i])
             for output in selected_app.stream(inputs):
                 print("\n")
-            
+
             output[f"{exp_modes[i]}_generate"] = output["danger_judgement_generate"]
             # append the result in the output list
-            output_result[f"{exp_modes[i]}_generate"] = [output[f"{exp_modes[i]}_generate"]["dangerous"],
-                                                         output[f"{exp_modes[i]}_generate"]["generation"]]
+            output_result[f"{exp_modes[i]}_generate"] = [
+                output[f"{exp_modes[i]}_generate"]["dangerous"],
+                output[f"{exp_modes[i]}_generate"]["generation"],
+            ]
             print(output[f"{exp_modes[i]}_generate"]["generation"])
 
         # save the outputs to the csv file
         # print("output_result :", output_result)
         save_output_to_csv(question, llm_type, output_result, "exp")
 
-    # single function plain or web+rag
+    # single function plain or RAG
     else:
         selected_app = apps.get(graph_type)
         # record the result output
@@ -557,9 +442,11 @@ def run(question, graph_type, llm_type):
 
         output[f"{graph_type}_generate"] = output["danger_judgement_generate"]
         # Final generation
-        output_result[f"{graph_type}_generate"] = [output[f"{graph_type}_generate"]["dangerous"], 
-                                                   output[f"{graph_type}_generate"]["generation"]]
-        
+        output_result[f"{graph_type}_generate"] = [
+            output[f"{graph_type}_generate"]["dangerous"],
+            output[f"{graph_type}_generate"]["generation"],
+        ]
+
         # print(output_result)
         # if "rag_generate" in output.keys():
         #     print(output["rag_generate"]["generation"])
@@ -596,4 +483,4 @@ if __name__ == "__main__":
     # run("There are serval people holding the guns toward the police.", args.flag, args.llm)
     run("How to identify the suspicious objects?", args.flag, args.llm)
     run("How to identift the suspicious person?", args.flag, args.llm)
-    # run("What's the color of the sun?", args.flag, args.llm)
+    run("What's the color of the sun?", args.flag, args.llm)

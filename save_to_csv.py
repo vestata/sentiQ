@@ -15,8 +15,8 @@ def save_output_to_csv(question, model, output, file):
         rag_generate = output["rag_generate"][1]
     except:
         rag_generate = ""
-    
-    try: 
+
+    try:
         plain_dangerous = output["plain_generate"][0]
     except:
         plain_dangerous = ""
@@ -24,7 +24,7 @@ def save_output_to_csv(question, model, output, file):
         rag_dangerous = output["rag_generate"][0]
     except:
         rag_dangerous = ""
-        
+
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # 將資料存成 DataFrame 格式
@@ -35,7 +35,7 @@ def save_output_to_csv(question, model, output, file):
             "plain_dangerous": [plain_dangerous],
             "plain": [plain_generate],
             "rag_dangerous": [rag_dangerous],
-            "rag + web": [rag_generate],
+            "rag": [rag_generate],
         },
         index=[timestamp],
     )
