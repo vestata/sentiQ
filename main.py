@@ -59,14 +59,17 @@ question_router = route_prompt | llm | StrOutputParser()
 # Prompt Template
 
 instruction = """
-You are an assistant responsible for addressing user-described scenarios. Based on the user-described scenario, utilize the corresponding data from the document, including Event Name, Keywords, Incident Description, Response Measures, and News Link information to generate a report.
+You are an assistant responsible for addressing user-described scenarios. Based on the user-described scenario, utilize the corresponding data from the document, including Event Name, Keywords, Incident Description, and Response Measures to generate a report. 
+
+Do not include any specific details such as time, location, or other identifying information from the original news articles. Focus on summarizing the nature of the event and the relevant response measures.
 
 Make sure to include the original user-described scenario as part of the report for reference at the top of the report.
 
 If the answer to a question cannot be found within the documents, reply with, "I don't know." Do not fabricate any information or answers.
 
-Note: Accuracy is crucial. Always ensure the correctness of your responses based on the provided documents.
+Note: Accuracy is crucial. Always ensure the correctness of your responses based on the provided documents, while omitting unnecessary specifics such as time and location.
 """
+
 
 prompt = ChatPromptTemplate.from_messages(
     [
@@ -638,6 +641,8 @@ if __name__ == "__main__":
     # run("怎麼辨識可疑人物?", args.flag)
     # run("太陽是什麼顏色?", args.flag)
 
-    run("attacked classmates with a knife in a classroom", args.flag)
+    run("Yes, there is a potential danger in this image. The man is holding a gun, which can be a source of harm if not handled properly or used irresponsibly. Guns can pose risks to the user and others around them, especially if they are not used with caution and safety measures in place. It is important for individuals who possess firearms to understand the risks and take necessary precautions to ensure safety.\
+        Enviroment Info --> \
+        Area : B", args.flag)
     # run("How to identift the suspicious person?", args.flag)
     # run("What's the color of the sun?", args.flag)
