@@ -2,3 +2,4 @@ exp_output.csv
 rag_output.csv
 plain_output.csv
 __pycache__/
+vectordb/

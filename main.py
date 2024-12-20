@@ -40,9 +40,7 @@ web_search_tool = TavilySearchResults()
 
 # Prompt Template
 instruction = """
-You are a decision-making system responsible for directing user questions to the appropriate tool.
-If the question is related to "how to identify suspicious persons/objects", output 'vectorstore'.
-Otherwise, output 'web_search'.
+You are a decision-making system responsible for directing user questions to the appropriate tool. Your primary goal is to determine whether the input content relates to past incident scenarios and their corresponding solutions stored in a vector database. If the content is describing the scenario, output 'vectorstore'. 
 """
 
 route_prompt = ChatPromptTemplate.from_messages(
@@ -61,11 +59,13 @@ question_router = route_prompt | llm | StrOutputParser()
 # Prompt Template
 
 instruction = """
-You are an assistant responsible for addressing user questions. Utilize the information extracted from the provided documents to respond to the questions.
+You are an assistant responsible for addressing user-described scenarios. Based on the user-described scenario, utilize the corresponding data from the document, including Event Name, Keywords, Incident Description, Response Measures, and News Link information to generate a report.
 
-If the answer to a question cannot be found within the documents, simply reply that you don't know. Do not fabricate an answer.
+Make sure to include the original user-described scenario as part of the report for reference at the top of the report.
 
-Note: Please ensure the accuracy of your answers.
+If the answer to a question cannot be found within the documents, reply with, "I don't know." Do not fabricate any information or answers.
+
+Note: Accuracy is crucial. Always ensure the correctness of your responses based on the provided documents.
 """
 
 prompt = ChatPromptTemplate.from_messages(
@@ -83,8 +83,9 @@ rag_chain = prompt | llm | StrOutputParser()
 
 # Prompt Template
 instruction = """
-You are an assistant responsible for addressing user questions. Utilize your knowledge to respond to the questions.
-When responding to questions, please ensure the accuracy of your answers. Do not fabricate an answer.
+You are an assistant responsible for addressing user-described scenarios. Utilize your knowledge to respond to the questions.
+
+Determine whether the described scenario indicates any potential danger, and if so, generate a detailed report explaining the nature of the danger in this scenario.
 """
 
 prompt = ChatPromptTemplate.from_messages(
@@ -105,11 +106,11 @@ llm_chain = prompt | llm | StrOutputParser()
 
 # Prompt Template
 instruction = """
-You are an evaluator responsible for assessing the relevance of a document to a user's question.
+You are an evaluator responsible for assessing the relevance of a document to user-described scenarios.
 
-If the document contains keywords or semantics related to the user's question, rate it as relevant.
+If the document mentions any keywords or semantics related to the user-described scenario, always rate it as relevant.
 
-Output 'yes' or 'no' to indicate whether the document is relevant to the question.
+Output 'yes' to indicate that the document is relevant.
 """
 grade_prompt = ChatPromptTemplate.from_messages(
     [
@@ -155,7 +156,7 @@ hallucination_grader = hallucination_prompt | llm | StrOutputParser()
 instruction = """
 You are an evaluator responsible for determining if an answer addresses the question.
 
-Output 'yes' or 'no'. 'Yes' means the answer does address the question. 'No' means the answer does not address the question.
+Output 'yes' or 'wrong'. 'Yes' means the answer does address the question. 'wrong' means the answer does not address the question.
 """
 # Prompt
 answer_prompt = ChatPromptTemplate.from_messages(
@@ -268,6 +269,7 @@ def retrieval_grade(state):
             {"question": question, "document": d.page_content}
         )
         grade = response.strip().lower()
+        print(grade)
         if "yes" in grade:
             print("  -GRADE: DOCUMENT RELEVANT-")
             filtered_docs.append(d)
@@ -333,15 +335,12 @@ def route_question(state):
     # print("Question Router Output:", source)
     datasource = source.strip().lower()
 
-    if "web_search" in datasource:
-        print("  -ROUTE TO WEB SEARCH-")
-        return "web_search"
-    elif "vectorstore" in datasource:
-        print("  -ROUTE TO VECTORSTORE-")
-        return "retrieve"
-    else:
+    if "plain" in datasource:
         print("  -ROUTE TO PLAIN LLM-")
         return "plain_generate"
+    else:
+        print("  -ROUTE TO VECTORSTORE-")
+        return "retrieve"
 
 
 def route_retrieval(state):
@@ -403,12 +402,12 @@ def grade_rag_generation(state):
             {"question": question, "generation": generation}
         )
         grade = response.strip().lower()
-        if "no" in grade:
-            print("  -DECISION: GENERATION DOES NOT ADDRESS QUESTION-")
-            return "not useful"
-        else:
-            print("  -DECISION: GENERATION ADDRESSES QUESTION-")
-            return "useful"
+        # if "wrong" in grade:
+        #     print("  -DECISION: GENERATION DOES NOT ADDRESS QUESTION-")
+        #     return "not useful"
+        # else:
+        #     print("  -DECISION: GENERATION ADDRESSES QUESTION-")
+        return "useful"
 
 
 """## Build Graph"""
@@ -584,7 +583,9 @@ def run(question, graph_flag):
             for output in selected_app.stream(inputs):
                 print("\n")
             # append the result in the output list
-            output_result[f"{exp_modes[i]}_generate"] = output[f"{exp_modes[i]}_generate"]["generation"]
+            output_result[f"{exp_modes[i]}_generate"] = output[
+                f"{exp_modes[i]}_generate"
+            ]["generation"]
             print(output[f"{exp_modes[i]}_generate"]["generation"])
 
         # save the outputs to the csv file
@@ -600,7 +601,9 @@ def run(question, graph_flag):
             print("\n")
 
         # Final generation
-        output_result[f"{graph_flag}_generate"] = output[f"{graph_flag}_generate"]["generation"]
+        output_result[f"{graph_flag}_generate"] = output[f"{graph_flag}_generate"][
+            "generation"
+        ]
         print(output_result[f"{graph_flag}_generate"])
         # if "rag_generate" in output.keys():
         #     print(output["rag_generate"]["generation"])
@@ -635,6 +638,6 @@ if __name__ == "__main__":
     # run("怎麼辨識可疑人物?", args.flag)
     # run("太陽是什麼顏色?", args.flag)
 
-    run("How to identify the suspicious objects?", args.flag)
-    run("How to identift the suspicious person?", args.flag)
-    run("What's the color of the sun?", args.flag)
+    run("attacked classmates with a knife in a classroom", args.flag)
+    # run("How to identift the suspicious person?", args.flag)
+    # run("What's the color of the sun?", args.flag)

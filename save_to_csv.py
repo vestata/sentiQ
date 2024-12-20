@@ -19,7 +19,12 @@ def save_output_to_csv(question, output, file):
 
     # 將資料存成 DataFrame 格式
     new_data = pd.DataFrame(
-        {"question": [question], "plain": [plain_generate], "rag + web": [rag_generate]}, index=[timestamp]
+        {
+            "question": [question],
+            "plain": [plain_generate],
+            "rag + web": [rag_generate],
+        },
+        index=[timestamp],
     )
 
     # 檢查檔案是否已存在
