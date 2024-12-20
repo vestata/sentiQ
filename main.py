@@ -30,9 +30,14 @@ from prompt import (
 # ====================================================
 os.environ["OPENAI_API_KEY"] = config.OPENAI_API_KEY
 
+# flag for plain or rag
+generate_flag = "plain"
+    
+
 def run(question, graph_type, llm_type):
     inputs = {"question": question}
 
+    # Choose LLM
     llm = model.get_llm(llm_type)
 
     # llm_type = "lm_studio"
@@ -206,7 +211,7 @@ def run(question, graph_type, llm_type):
         source = question_router.invoke({"question": question})
         # print("Question Router Output:", source)
         datasource = source.strip().lower()
-        
+
         if "vectorstore" in datasource:
             print("  -ROUTE TO VECTORSTORE-")
             return "retrieve"
@@ -391,7 +396,6 @@ def run(question, graph_type, llm_type):
             self.setup_graph()
             return self.compile_workflow()
 
-
     # Create the plain llm graph
     state_graph_plain = PlainGraph()
     app_plain = state_graph_plain.create_app()
@@ -437,15 +441,21 @@ def run(question, graph_type, llm_type):
         selected_app = apps.get(graph_type)
         # record the result output
         output_result = {f"{graph_type}_generate": []}
+        # output_result = {f"{generate_flag}_generate": []}
         for output in selected_app.stream(inputs):
             print("\n")
 
         output[f"{graph_type}_generate"] = output["danger_judgement_generate"]
+        # output[f"{generate_flag}_generate"] = output["danger_judgement_generate"]
         # Final generation
         output_result[f"{graph_type}_generate"] = [
             output[f"{graph_type}_generate"]["dangerous"],
             output[f"{graph_type}_generate"]["generation"],
         ]
+        # output_result[f"{generate_flag}_generate"] = [
+        #     output[f"{generate_flag}_generate"]["dangerous"],
+        #     output[f"{generate_flag}_generate"]["generation"],
+        # ]
 
         # print(output_result)
         # if "rag_generate" in output.keys():
