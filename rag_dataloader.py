@@ -3,14 +3,14 @@ from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
+from langchain.document_loaders import PyPDFLoader
 import pytesseract
 import os
 import config
 
 os.environ["OPENAI_API_KEY"] = config.OPENAI_API_KEY
 
-pdf_path = "data/MARITIME_ACTIVITY_SUSPICIOUS_ACTIVITY_FA.pdf"
-# pdf_path = "data/data1.pdf"
+pdf_path = "data/NewRAG1220.pdf"
 
 persist_directory = "vectordb"
 
@@ -36,39 +36,18 @@ else:
     print("vectordb is empty, starting PDF OCR and embedding process")
 
     # 將 PDF 每頁轉為圖片
-    images = convert_from_path(pdf_path)
+    loader = PyPDFLoader(pdf_path)
 
-    print("--start OCR--")
-    all_text = ""
-
-    # 遍歷每頁圖片並進行 OCR
-    for i, image in enumerate(images):
-        # 使用 Tesseract OCR 提取文字
-        text = pytesseract.image_to_string(
-            # image, lang="chi_tra"
-            image,
-            lang="eng",
-        )  # 若為繁體中文，可改為 'chi_tra'
-        all_text += text + "\n"
-
-    print("--start word split--")
-    # 初始化文字分割器
-    splitter = RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=128)
-
-    # 使用文字分割器分割全部文字
-    doc_split = splitter.split_text(all_text)
-
-    # 將分割後的文字轉為 Document 物件
-    documents = [Document(page_content=chunk) for chunk in doc_split]
+    splitter = RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=64)
+    doc_split = loader.load_and_split(splitter)
 
     print("--start embedding--")
-    # 定義要使用的 Embedding model 將 chunk 內的文字轉為向量
     embeddings = OpenAIEmbeddings()
 
     print("--creating vectorstore and saving to vectordb--")
     # 使用 Chroma 建立 vectorstore，並將其轉為 retriever 型態
     vectorstore = Chroma.from_documents(
-        documents=documents,
+        documents=doc_split,
         embedding=embeddings,
         persist_directory=persist_directory,
     )
